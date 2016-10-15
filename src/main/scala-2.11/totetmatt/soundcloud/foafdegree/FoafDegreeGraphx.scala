@@ -7,7 +7,7 @@ import org.apache.spark._
 import scala.collection.immutable.SortedSet
 
 object FoafDegreeGraphx{
-  type Nodedata = (String,Set[String])
+  type Nodedata = (String,SortedSet[String])
 
   def getDegreeFriends(degree:Int,input:List[(String,String)],sc:SparkContext) ={
     /* Combine methods to create the undirected graph structure*/
@@ -18,11 +18,11 @@ object FoafDegreeGraphx{
 
     val init = sc.parallelize(input)
     /* Create nodes */
-    val nodes: RDD[(VertexId,(String,Set[String]))] =
+    val nodes: RDD[(VertexId,(String,SortedSet[String]))] =
       init
         .flatMap(x=>scala.collection.immutable.List(x._1,x._2))
         .distinct
-        .map(x => ( x.hashCode.asInstanceOf[VertexId],(x,Set[String]())  )  )
+        .map(x => ( x.hashCode.asInstanceOf[VertexId],(x,SortedSet[String]())  )  )
     /* Create Edges */
     val edges: RDD[Edge[Int]] = init
       .flatMap(x=>List(x,x.swap)).map(x => Edge(x._1.hashCode(),x._2.hashCode(),1))
@@ -33,22 +33,22 @@ object FoafDegreeGraphx{
     /* Methods used for the pregel function*/
 
     // When a node receive a message
-    def vprog(id:VertexId,friends:Nodedata,newFriends:Set[String]) : Nodedata = {
+    def vprog(id:VertexId,friends:Nodedata,newFriends:SortedSet[String]) : Nodedata = {
       (friends._1,newFriends ++friends._2)
     }
 
     //Create message to send for the next loop
-    def sendMessage(triplet:EdgeTriplet[Nodedata, Int]): Iterator[(VertexId, Set[String])] = {
+    def sendMessage(triplet:EdgeTriplet[Nodedata, Int]): Iterator[(VertexId, SortedSet[String])] = {
       Iterator((triplet.dstId, triplet.srcAttr._2 + triplet.srcAttr._1))
     }
 
     // Create message from all incoming messages
-    def mergeMessage(a:Set[String],b:Set[String]):Set[String] = {
+    def mergeMessage(a:SortedSet[String],b:SortedSet[String]):SortedSet[String] = {
       a ++ b
     }
 
     // Pregel method
-    graph.pregel(Set.empty[String],degree,EdgeDirection.Both)(
+    graph.pregel(SortedSet.empty[String],degree,EdgeDirection.Both)(
       vprog,
       sendMessage,
       mergeMessage
